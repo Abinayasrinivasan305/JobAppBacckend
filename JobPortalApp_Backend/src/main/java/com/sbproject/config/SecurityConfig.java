@@ -61,23 +61,25 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        List<String> allowedOrigins = parseFrontendUrls(frontendUrlsEnv);
+  @Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
 
-        CorsConfiguration configuration = new CorsConfiguration();
-        // use patterns to allow e.g. https://*.vercel.app if necessary
-        configuration.setAllowedOriginPatterns(allowedOrigins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        // Using JWT in headers — do not enable cookie credentials
-        configuration.setAllowCredentials(false);
-        configuration.setExposedHeaders(List.of("Authorization"));
+    // Allow your deployed frontend + localhost for testing
+    configuration.setAllowedOrigins(List.of(
+        "https://job-app-frontend-opal.vercel.app", // ✅ your Vercel frontend
+        "http://localhost:5173"                     // ✅ for local testing
+    ));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(List.of("*"));
+    configuration.setAllowCredentials(false);
+    configuration.setExposedHeaders(List.of("Authorization"));
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
 
     private List<String> parseFrontendUrls(String env) {
         if (env == null || env.isBlank()) {
