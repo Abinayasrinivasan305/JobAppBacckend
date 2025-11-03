@@ -1,8 +1,10 @@
 package com.sbproject.config;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,17 +30,23 @@ import com.sbproject.service.MyUserDetailsService;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private JwtFilter jwtAuthFilter;
+    private final JwtFilter jwtAuthFilter;
+    private final MyUserDetailsService myUserDetailsService;
 
-    @Autowired
-    private MyUserDetailsService myUserDetailsService;
+    // provide FRONTEND_URLS via env var in Render (comma separated)
+    @Value("${FRONTEND_URLS:}")
+    private String frontendUrlsEnv;
+
+    public SecurityConfig(JwtFilter jwtAuthFilter, MyUserDetailsService myUserDetailsService) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.myUserDetailsService = myUserDetailsService;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())       // disable CSRF using lambda style
-            .cors(cors -> {})                   // enable CORS (will use your CorsConfigurationSource bean)
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {}) // uses corsConfigurationSource() bean
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
@@ -55,16 +63,31 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        List<String> allowedOrigins = parseFrontendUrls(frontendUrlsEnv);
+
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // frontend
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        // use patterns to allow e.g. https://*.vercel.app if necessary
+        configuration.setAllowedOriginPatterns(allowedOrigins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // for withCredentials
-        configuration.setExposedHeaders(List.of("Authorization")); // optional if sending token in header
+        // Using JWT in headers — do not enable cookie credentials
+        configuration.setAllowCredentials(false);
+        configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // apply globally
+        source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private List<String> parseFrontendUrls(String env) {
+        if (env == null || env.isBlank()) {
+            // default dev origins
+            return Arrays.asList("http://localhost:5173", "http://localhost:3000");
+        }
+        return Arrays.stream(env.split(","))
+                     .map(String::trim)
+                     .filter(s -> !s.isEmpty())
+                     .collect(Collectors.toList());
     }
 
     @Bean
