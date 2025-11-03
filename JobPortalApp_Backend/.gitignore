@@ -1,6 +1,3 @@
-target/
-*.log
-*.class
 /.settings/
 /bin/
 /.project
