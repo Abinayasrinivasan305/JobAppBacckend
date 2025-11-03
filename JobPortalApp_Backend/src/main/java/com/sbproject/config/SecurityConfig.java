@@ -22,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.Customizer;
 
 import com.sbproject.service.MyUserDetailsService;
 
@@ -33,7 +34,6 @@ public class SecurityConfig {
     private final JwtFilter jwtAuthFilter;
     private final MyUserDetailsService myUserDetailsService;
 
-    // provide FRONTEND_URLS via env var in Render (comma separated)
     @Value("${FRONTEND_URLS:}")
     private String frontendUrlsEnv;
 
@@ -42,11 +42,12 @@ public class SecurityConfig {
         this.myUserDetailsService = myUserDetailsService;
     }
 
+    // ✅ MAIN SECURITY FILTER CHAIN
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> {}) // uses corsConfigurationSource() bean
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ enable global CORS config
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
@@ -61,29 +62,30 @@ public class SecurityConfig {
         return http.build();
     }
 
-  @Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
+    // ✅ GLOBAL CORS CONFIGURATION
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
 
-    // Allow your deployed frontend + localhost for testing
-    configuration.setAllowedOrigins(List.of(
-        "https://job-app-frontend-opal.vercel.app", // ✅ your Vercel frontend
-        "http://localhost:5173"                     // ✅ for local testing
-    ));
+        // ✅ Allowed frontends (your deployed + local dev)
+        configuration.setAllowedOrigins(List.of(
+            "https://job-app-frontend-opal.vercel.app",
+            "http://localhost:5173"
+        ));
 
-    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("*"));
-    configuration.setAllowCredentials(false);
-    configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(true); // ✅ Allow credentials for JWT auth
 
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
-}
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 
+    // ✅ Optional: parse env variable for Render if needed
     private List<String> parseFrontendUrls(String env) {
         if (env == null || env.isBlank()) {
-            // default dev origins
             return Arrays.asList("http://localhost:5173", "http://localhost:3000");
         }
         return Arrays.stream(env.split(","))
@@ -92,6 +94,7 @@ public CorsConfigurationSource corsConfigurationSource() {
                      .collect(Collectors.toList());
     }
 
+    // ✅ AUTH PROVIDER CONFIG
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -100,11 +103,13 @@ public CorsConfigurationSource corsConfigurationSource() {
         return authProvider;
     }
 
+    // ✅ PASSWORD ENCODER
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    // ✅ AUTH MANAGER
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
