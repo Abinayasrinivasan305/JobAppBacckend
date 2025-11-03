@@ -1,14 +1,17 @@
-# Step 1: Use official Java runtime as base image
+# Use official JDK 17 image
 FROM openjdk:17-jdk-slim
 
-# Step 2: Set the working directory inside the container
+# Set working directory inside container
 WORKDIR /app
 
-# Step 3: Copy the jar file into the container
-COPY target/jobappbackend.jar app.jar
+# Copy Maven project files and build it
+COPY . .
 
-# Step 4: Expose port 8080 (the port your Spring Boot app runs on)
+# Build the jar file inside container
+RUN ./mvnw clean package -DskipTests
+
+# Expose backend port
 EXPOSE 8080
 
-# Step 5: Run the jar file
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the generated jar file
+ENTRYPOINT ["java", "-jar", "target/jobappbackend.jar"]
