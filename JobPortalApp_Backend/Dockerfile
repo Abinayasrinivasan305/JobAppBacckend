@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copy only the jar from the target folder
-COPY target/jobappbackend.jar app.jar
+COPY target/JobPortalApp_Backend-0.0.1-SNAPSHOT.jar app.jar
 
 # Expose port
 EXPOSE 8080
