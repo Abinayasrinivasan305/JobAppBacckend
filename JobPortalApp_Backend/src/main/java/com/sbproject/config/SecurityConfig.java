@@ -22,7 +22,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.config.Customizer;
 
 import com.sbproject.service.MyUserDetailsService;
 
@@ -46,15 +45,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // ✅ Enable CORS before any security filters
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ enable global CORS config
+
+            // ✅ Permit all preflight (OPTIONS) requests
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll() // 🔥 This line fixes preflight
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/jobs/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                 .requestMatchers("/api/jobs/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
+
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -67,7 +71,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ✅ Allowed frontends (your deployed + local dev)
+        // ✅ Allowed frontend URLs (Render + localhost)
         configuration.setAllowedOrigins(List.of(
             "https://job-app-frontend-opal.vercel.app",
             "http://localhost:5173"
@@ -75,23 +79,12 @@ public class SecurityConfig {
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(true); // ✅ Allow credentials for JWT auth
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true); // ✅ Allow cookies / Authorization header
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    // ✅ Optional: parse env variable for Render if needed
-    private List<String> parseFrontendUrls(String env) {
-        if (env == null || env.isBlank()) {
-            return Arrays.asList("http://localhost:5173", "http://localhost:3000");
-        }
-        return Arrays.stream(env.split(","))
-                     .map(String::trim)
-                     .filter(s -> !s.isEmpty())
-                     .collect(Collectors.toList());
     }
 
     // ✅ AUTH PROVIDER CONFIG
