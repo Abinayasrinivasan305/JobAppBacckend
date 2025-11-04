@@ -2,7 +2,6 @@ package com.sbproject.config;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,51 +27,61 @@ import com.sbproject.service.MyUserDetailsService;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private JwtFilter jwtAuthFilter;
+    private final JwtFilter jwtAuthFilter;
+    private final MyUserDetailsService myUserDetailsService;
 
-    @Autowired
-    private MyUserDetailsService myUserDetailsService;
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())       // disable CSRF using lambda style
-            .cors(cors -> {})                   // enable CORS (will use your CorsConfigurationSource bean)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
-                .requestMatchers("/api/jobs/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                .requestMatchers("/api/jobs/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
+    public SecurityConfig(JwtFilter jwtAuthFilter, MyUserDetailsService myUserDetailsService) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.myUserDetailsService = myUserDetailsService;
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // frontend
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // for withCredentials
-        configuration.setExposedHeaders(List.of("Authorization")); // optional if sending token in header
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable())
+        .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ Enable CORS globally
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // ✅ Allow preflight requests
+            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+            .requestMatchers("/api/jobs/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+            .requestMatchers("/api/jobs/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
+            .anyRequest().authenticated()
+        )
+        .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authenticationProvider(authenticationProvider())
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // apply globally
-        return source;
-    }
+    return http.build();
+}
+
+
+    // ✅ Global CORS Configuration
+   @Bean
+   public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(List.of(
+        "https://job-app-frontend-sigma.vercel.app",
+        "http://localhost:5173"
+    ));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "*"));
+    configuration.setExposedHeaders(List.of("Authorization"));
+    configuration.setAllowCredentials(true);
+    configuration.setMaxAge(3600L);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(myUserDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(myUserDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
 
     @Bean

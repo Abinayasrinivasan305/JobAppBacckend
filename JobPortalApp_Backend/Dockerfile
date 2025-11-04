@@ -1,14 +1,16 @@
-# Use lightweight JDK 17 image
-FROM openjdk:17-jdk-slim
+# ✅ Use modern, stable JDK 21 image (official Temurin build)
+FROM eclipse-temurin:21-jdk-jammy
 
-# Set working directory
 WORKDIR /app
 
+<<<<<<< HEAD
 # Copy the JAR from the correct folder
+=======
+# Copy the built JAR file from your project
+>>>>>>> branch 'master' of https://github.com/Abinayasrinivasan305/JobAppBacckend.git
 COPY JobPortalApp_Backend/target/JobPortalApp_Backend-0.0.1-SNAPSHOT.jar app.jar
 
-# Expose port
 EXPOSE 8080
 
-# Run the JAR
+# Run the JAR file
 ENTRYPOINT ["java", "-jar", "app.jar"]
