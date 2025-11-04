@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "https://job-app-frontend-opal.vercel.app")
 @RestController
 @RequestMapping("/api/auth")
 public class UserController {
