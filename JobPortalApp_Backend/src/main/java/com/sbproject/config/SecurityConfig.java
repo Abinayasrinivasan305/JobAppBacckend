@@ -86,7 +86,7 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
                         .allowedOrigins(
-                            "https://jobappfrontend.onrender.com", // frontend hosted URL
+                            "https://job-app-frontend-sigma.vercel.app/", // frontend hosted URL
                             "http://localhost:5173"                // local dev
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
